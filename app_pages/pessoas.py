@@ -14,7 +14,7 @@ def confirmar_exclusao(pessoa: Pessoa) -> None:
         st.rerun()
 
 
-st.title("Pessoas cadastradas")
+st.header("Pessoas cadastradas")
 
 pessoas = memoria.pessoas()
 if not pessoas:

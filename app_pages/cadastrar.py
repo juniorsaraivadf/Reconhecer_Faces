@@ -15,7 +15,7 @@ VERDE = (80, 175, 76)  # BGR
 if "cadastros_feitos" not in st.session_state:
     st.session_state.cadastros_feitos = 0
 
-st.title("Cadastrar pessoa")
+st.header("Cadastrar pessoa")
 st.caption(
     "Cadastre uma foto por vez, com um único rosto. Para melhorar o reconhecimento, "
     "repita o mesmo nome com fotos em ângulos e iluminações diferentes."

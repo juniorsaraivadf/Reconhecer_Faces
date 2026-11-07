@@ -14,7 +14,7 @@ from agente.visao import ImagemInvalida, decodificar_imagem, desenhar_rostos
 
 VERDE, VERMELHO = (80, 175, 76), (54, 67, 244)  # BGR
 
-st.title("Identificar pessoa")
+st.header("Identificar pessoa")
 st.caption("Mostre um rosto ao agente: ele compara com os cadastros e fala o nome.")
 
 memoria = carregar_memoria()

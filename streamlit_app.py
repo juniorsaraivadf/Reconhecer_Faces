@@ -1,6 +1,9 @@
 import streamlit as st
 
-st.set_page_config(page_title="Agente de reconhecimento facial", page_icon=":material/face:")
+TITULO = "Reconhecimento de Faces com IA - 07/11/2026"
+
+st.set_page_config(page_title=TITULO, page_icon=":material/face:")
+st.title(TITULO)
 
 pagina = st.navigation(
     [
