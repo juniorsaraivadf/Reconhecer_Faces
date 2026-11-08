@@ -1,8 +1,16 @@
+from pathlib import Path
+
 import streamlit as st
 
-TITULO = "Reconhecimento de Faces com IA - 07/11/2026"
+TITULO = "Reconhecimento de Faces com IA"
+LOGO = Path(__file__).parent / "assets" / "logo_seti.jpg"
 
 st.set_page_config(page_title=TITULO, page_icon=":material/face:")
+st.image(
+    str(LOGO),
+    width=360,
+    alt="Logo da SETI, Semana de Tecnologia Industrial do IFCE Campus Limoeiro do Norte",
+)
 st.title(TITULO)
 
 pagina = st.navigation(
