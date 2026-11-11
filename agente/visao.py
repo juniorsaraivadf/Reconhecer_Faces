@@ -10,6 +10,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from agente.prova_de_vida import estimar_giro
+
 PASTA_MODELOS = Path(__file__).resolve().parent.parent / "modelos"
 MODELO_DETECTOR = PASTA_MODELOS / "face_detection_yunet_2023mar.onnx"
 MODELO_RECONHECEDOR = PASTA_MODELOS / "face_recognition_sface_2021dec.onnx"
@@ -28,6 +30,7 @@ class Rosto:
     caixa: tuple[int, int, int, int]  # x, y, largura, altura
     embedding: np.ndarray  # vetor de norma 1
     confianca: float
+    giro: float = 0.0  # giro horizontal estimado; veja agente.prova_de_vida.estimar_giro
 
 
 def decodificar_imagem(conteudo: bytes) -> np.ndarray:
@@ -98,7 +101,14 @@ class Visao:
                 alinhado = self._reconhecedor.alignCrop(imagem, deteccao)
                 vetor = self._reconhecedor.feature(alinhado).flatten().astype(np.float32)
                 x, y, w, h = (int(v) for v in deteccao[:4])
+                # Pontos do YuNet: dois olhos, ponta do nariz e cantos da boca.
+                giro = estimar_giro(deteccao[4:6], deteccao[6:8], deteccao[8:10])
                 rostos.append(
-                    Rosto((x, y, w, h), vetor / np.linalg.norm(vetor), float(deteccao[-1]))
+                    Rosto(
+                        (x, y, w, h),
+                        vetor / np.linalg.norm(vetor),
+                        float(deteccao[-1]),
+                        giro,
+                    )
                 )
         return sorted(rostos, key=lambda rosto: rosto.caixa[0])

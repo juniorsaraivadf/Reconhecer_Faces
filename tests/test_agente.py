@@ -3,6 +3,7 @@ import pytest
 
 from agente.fala import montar_frase
 from agente.memoria import LIMIAR_PADRAO, Memoria, normalizar_nome
+from agente.prova_de_vida import TEMPO_LIMITE_S, Desafio, Situacao, estimar_giro
 from agente.visao import ImagemInvalida, Visao, decodificar_imagem
 
 
@@ -86,3 +87,44 @@ def test_bytes_invalidos_sao_rejeitados():
 
 def test_imagem_sem_rosto_nao_gera_deteccao():
     assert Visao().perceber(np.full((400, 400, 3), 127, np.uint8)) == []
+
+
+def ponto(x: float, y: float) -> np.ndarray:
+    return np.array([x, y], dtype=np.float32)
+
+
+def test_giro_de_frente_e_virado():
+    olho_1, olho_2 = ponto(40, 50), ponto(60, 50)
+    assert estimar_giro(olho_1, olho_2, ponto(50, 60)) == pytest.approx(0)
+    assert estimar_giro(olho_1, olho_2, ponto(58, 60)) == pytest.approx(0.4)
+    assert estimar_giro(olho_2, olho_1, ponto(42, 60)) == pytest.approx(-0.4)
+
+
+def test_giro_com_olhos_sobrepostos_nao_quebra():
+    assert estimar_giro(ponto(50, 50), ponto(50, 50), ponto(70, 60)) == 0
+
+
+def test_desafio_aprovado_ao_virar_e_voltar():
+    desafio = Desafio("Ana", "esquerda", prazo=10)
+    assert desafio.avaliar([("Ana", 0.0)], agora=1) is Situacao.AGUARDANDO
+    assert desafio.avaliar([(None, 0.5)], agora=2) is Situacao.AGUARDANDO
+    assert desafio.avaliar([("Ana", 0.05)], agora=3) is Situacao.APROVADO
+
+
+def test_desafio_ignora_lado_errado():
+    desafio = Desafio("Ana", "direita", prazo=10)
+    desafio.avaliar([("Ana", 0.5)], agora=1)  # virou para a esquerda
+    assert desafio.avaliar([("Ana", 0.0)], agora=2) is Situacao.AGUARDANDO
+
+
+def test_desafio_exige_a_mesma_pessoa_na_volta():
+    desafio = Desafio("Ana", "direita", prazo=10)
+    desafio.avaliar([("Ana", -0.5)], agora=1)
+    assert desafio.avaliar([("Bia", 0.0)], agora=2) is Situacao.AGUARDANDO
+
+
+def test_foto_parada_e_reprovada_no_prazo():
+    desafio = Desafio.sortear("Ana", agora=0)
+    for segundo in range(int(TEMPO_LIMITE_S) + 1):
+        assert desafio.avaliar([("Ana", 0.02)], agora=segundo) is Situacao.AGUARDANDO
+    assert desafio.avaliar([("Ana", 0.02)], agora=TEMPO_LIMITE_S + 0.1) is Situacao.REPROVADO

@@ -49,7 +49,7 @@ function passo(inst) {
     return
   }
   if (!inst.stream || inst.video.readyState < 2) return
-  inst.status.textContent = "Procurando rostos..."
+  inst.status.textContent = inst.data?.mensagem || "Procurando rostos..."
 
   const respondido = (inst.data?.ultimo_quadro ?? 0) >= inst.enviado
   const demorou = agora - inst.enviadoEm > TEMPO_MAXIMO_RESPOSTA_MS
@@ -128,8 +128,11 @@ def camera_ao_vivo(
     espera_ms: int,
     on_quadro: Callable[[], None],
     intervalo_ms: int = 700,
+    mensagem: str = "",
 ) -> None:
     """Mostra a câmera ao vivo. A cada quadro recebido, chama ``on_quadro``.
+
+    ``mensagem`` substitui o texto "Procurando rostos..." abaixo do vídeo.
 
     O quadro fica em ``st.session_state[key].quadro`` como ``{"id", "imagem"}``,
     com a imagem JPEG em base64.
@@ -141,6 +144,7 @@ def camera_ao_vivo(
             "pausa_id": pausa_id,
             "espera_ms": espera_ms,
             "intervalo_ms": intervalo_ms,
+            "mensagem": mensagem,
         },
         on_quadro_change=on_quadro,
     )

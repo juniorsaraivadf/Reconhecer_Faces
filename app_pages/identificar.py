@@ -8,6 +8,7 @@ from gtts.tts import gTTSError
 from agente.camera_ao_vivo import camera_ao_vivo
 from agente.fala import montar_frase
 from agente.memoria import LIMIAR_PADRAO, Resultado
+from agente.prova_de_vida import Desafio, Situacao
 from agente.recursos import (
     capturar_foto,
     carregar_memoria,
@@ -19,6 +20,9 @@ from agente.visao import ImagemInvalida, Rosto, codificar_jpeg, decodificar_imag
 
 VERDE, VERMELHO = (80, 175, 76), (54, 67, 244)  # BGR
 PAUSA_APOS_RECONHECER_S = 10
+PAUSA_APOS_FALHA_S = 3
+INTERVALO_NORMAL_MS = 700
+INTERVALO_DESAFIO_MS = 300  # mais quadros durante o desafio, para captar o giro
 CHAVE_VIDEO = "video_identificar"
 
 
@@ -49,6 +53,13 @@ def aviso_sem_voz() -> None:
     )
 
 
+def preparar_fala(frase: str, identificador: str) -> tuple[str, str, bytes] | None:
+    try:
+        return identificador, frase, gerar_audio(frase)
+    except gTTSError:
+        return None
+
+
 def novo_estado_video() -> dict:
     return {
         "ultimo_quadro": 0,
@@ -57,19 +68,23 @@ def novo_estado_video() -> dict:
         "limiar": LIMIAR_PADRAO,
         "resultados": [],
         "imagem": None,  # JPEG do último quadro com rostos marcados
+        "desafio": None,  # Desafio em andamento
+        "fala_desafio": None,  # (identificador, frase, áudio) da instrução do desafio
+        "falhou_ate": 0.0,  # depois de uma falha, espera um pouco antes de novo desafio
         "fala": None,  # (identificador, frase, áudio) do último reconhecimento
         "sem_voz": False,
     }
 
 
 def ao_receber_quadro() -> None:
-    """Analisa o quadro enviado pela câmera; ao reconhecer alguém, fala e pausa."""
+    """Analisa o quadro da câmera: reconhece, aplica a prova de vida, fala e pausa."""
     estado = st.session_state.video_estado
     quadro = st.session_state[CHAVE_VIDEO].quadro
     if not quadro:
         return
     estado["ultimo_quadro"] = quadro["id"]
-    if time.time() < estado["pausado_ate"]:
+    agora = time.time()
+    if agora < estado["pausado_ate"]:
         return
 
     try:
@@ -83,19 +98,35 @@ def ao_receber_quadro() -> None:
     estado["resultados"] = resultados
     estado["imagem"] = codificar_jpeg(marcar(imagem, rostos, resultados)) if rostos else None
 
-    nomes = [resultado.nome for resultado in resultados if resultado.nome]
-    if not nomes:
+    desafio: Desafio | None = estado["desafio"]
+    if desafio is None:
+        if agora < estado["falhou_ate"]:
+            return
+        reconhecidos = [(r, res) for r, res in zip(rostos, resultados) if res.nome]
+        if not reconhecidos:
+            return
+        # Um desafio por vez, para a pessoa mais próxima da câmera (maior rosto).
+        _, resultado = max(reconhecidos, key=lambda par: par[0].caixa[2] * par[0].caixa[3])
+        assert resultado.nome is not None
+        desafio = Desafio.sortear(resultado.nome, agora)
+        estado["desafio"] = desafio
+        estado["fala_desafio"] = preparar_fala(desafio.instrucao, f"desafio:{desafio.prazo}")
         return
 
-    frase = montar_frase(nomes)
+    situacao = desafio.avaliar(
+        [(res.nome, rosto.giro) for rosto, res in zip(rostos, resultados)], agora
+    )
+    if situacao is Situacao.AGUARDANDO:
+        return
+    estado["desafio"] = estado["fala_desafio"] = None
+    if situacao is Situacao.REPROVADO:
+        estado["falhou_ate"] = agora + PAUSA_APOS_FALHA_S
+        return
+
+    frase = montar_frase([desafio.nome])
     estado["pausa_id"] += 1
-    try:
-        audio = gerar_audio(frase)
-    except gTTSError:
-        estado["fala"], estado["sem_voz"] = None, True
-    else:
-        estado["fala"] = (f"video:{estado['pausa_id']}:{frase}", frase, audio)
-        estado["sem_voz"] = False
+    estado["fala"] = preparar_fala(frase, f"video:{estado['pausa_id']}:{frase}")
+    estado["sem_voz"] = estado["fala"] is None
     # A espera começa depois de a voz ficar pronta, para durar os 10 s inteiros.
     estado["pausado_ate"] = time.time() + PAUSA_APOS_RECONHECER_S
 
@@ -104,13 +135,32 @@ def ao_receber_quadro() -> None:
 def reconhecer_pelo_video() -> None:
     # Cada quadro reexecuta só este fragmento, não a página inteira.
     estado = st.session_state.video_estado
+    desafio: Desafio | None = estado["desafio"]
+    agora = time.time()
     camera_ao_vivo(
         key=CHAVE_VIDEO,
         ultimo_quadro=estado["ultimo_quadro"],
         pausa_id=estado["pausa_id"],
-        espera_ms=max(0, round((estado["pausado_ate"] - time.time()) * 1000)),
+        espera_ms=max(0, round((estado["pausado_ate"] - agora) * 1000)),
         on_quadro=ao_receber_quadro,
+        intervalo_ms=INTERVALO_DESAFIO_MS if desafio else INTERVALO_NORMAL_MS,
+        mensagem=desafio.instrucao if desafio else "",
     )
+
+    # Durante o desafio, o nome não aparece: só é revelado depois da prova de vida.
+    if desafio:
+        st.info(desafio.instrucao, title="Prova de vida", icon=":material/frame_person:")
+        if estado["fala_desafio"]:
+            identificador, _, audio = estado["fala_desafio"]
+            falar(audio, identificador)
+        return
+    if agora < estado["falhou_ate"]:
+        st.warning(
+            "O rosto não foi virado a tempo. Olhe para a câmera para tentar de novo.",
+            title="Prova de vida não concluída",
+            icon=":material/gpp_bad:",
+        )
+        return
 
     if estado["resultados"]:
         exibir_resultados(estado["resultados"], estado["limiar"])
@@ -121,7 +171,7 @@ def reconhecer_pelo_video() -> None:
             alt=f"Quadro analisado com {len(estado['resultados'])} rosto(s) marcado(s)",
         )
 
-    pausado = time.time() < estado["pausado_ate"]
+    pausado = agora < estado["pausado_ate"]
     if pausado and estado["sem_voz"]:
         aviso_sem_voz()
     if pausado and estado["fala"]:
@@ -156,8 +206,8 @@ modo = st.segmented_control(
     required=True,
     key="modo_identificar",
     help=(
-        f"No vídeo ao vivo, o agente reconhece sem tirar foto, fala o nome e espera "
-        f"{PAUSA_APOS_RECONHECER_S} segundos antes de reconhecer de novo."
+        "No vídeo ao vivo, o agente pede para virar o rosto (prova de vida), fala o nome "
+        f"e espera {PAUSA_APOS_RECONHECER_S} segundos antes de reconhecer de novo."
     ),
 )
 
@@ -167,9 +217,13 @@ if modo == "Vídeo ao vivo":
     reconhecer_pelo_video()
     st.stop()
 
-# Ao voltar para o vídeo, começa do zero, sem pausa nem resultado antigo.
+# Ao voltar para o vídeo, começa do zero, sem pausa, desafio ou resultado antigo.
 st.session_state.pop("video_estado", None)
 
+st.caption(
+    ":material/warning: O modo Foto não tem prova de vida: uma foto de outra foto "
+    "também é reconhecida."
+)
 foto = capturar_foto("identificar")
 if foto is None:
     st.stop()

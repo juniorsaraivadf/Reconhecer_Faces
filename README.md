@@ -16,7 +16,7 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 
 1. Em **Cadastrar**, informe o nome, tire ou envie uma foto com um único rosto e clique em **Cadastrar foto**.
 2. Repita com o mesmo nome para adicionar fotos da pessoa em ângulos e iluminações diferentes.
-3. Em **Identificar**, no modo **Vídeo ao vivo**, basta ficar de frente para a câmera: o agente reconhece direto do vídeo, fala o nome e espera 10 segundos antes de um novo reconhecimento. No modo **Foto**, tire ou envie uma foto. O agente mostra o resultado e fala o nome.
+3. Em **Identificar**, no modo **Vídeo ao vivo**, fique de frente para a câmera. Ao reconhecer um rosto, o agente pede para virá-lo para um lado sorteado e voltar a olhar para a câmera (prova de vida). Se a pessoa cumprir o desafio em até 8 segundos, o agente fala o nome e espera 10 segundos antes de um novo reconhecimento. No modo **Foto**, tire ou envie uma foto. O agente mostra o resultado e fala o nome.
 4. Em **Pessoas cadastradas**, veja os cadastros ou exclua uma pessoa com todas as fotos.
 
 ## Como funciona
@@ -29,6 +29,12 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 | Ação | `agente/fala.py` | Gera a fala em português com gTTS. |
 
 O limiar pode ser ajustado na barra lateral da página **Identificar**. Valores maiores reduzem confusões entre pessoas, mas podem rejeitar quem está cadastrado.
+
+### Prova de vida
+
+Os modelos de reconhecimento olham só a aparência do rosto, então uma foto impressa ou na tela de um celular seria reconhecida como a própria pessoa. Para evitar isso, o modo **Vídeo ao vivo** aplica um desafio (`agente/prova_de_vida.py`): a pessoa vira o rosto para um lado sorteado e volta a olhar para a câmera. O giro é medido pela posição do nariz em relação aos olhos, com os pontos que o YuNet já fornece. Inclinar uma foto plana não muda essa medida, então uma foto não passa.
+
+O desafio é uma proteção didática, não um controle de acesso: um vídeo da pessoa virando para o lado certo, ou a troca rápida entre duas fotos (uma virada e outra de frente), ainda pode enganá-lo. O modo **Foto** não tem prova de vida.
 
 ## Publicar no Streamlit Community Cloud
 
