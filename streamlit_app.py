@@ -19,7 +19,7 @@ pagina = st.navigation(
             "app_pages/identificar.py",
             title="Identificar",
             icon=":material/person_search:",
-            help="Envie ou tire uma foto para o agente reconhecer e falar o nome da pessoa.",
+            help="Mostre o rosto na câmera ao vivo, ou use uma foto, para o agente reconhecer e falar o nome da pessoa.",
         ),
         st.Page(
             "app_pages/cadastrar.py",

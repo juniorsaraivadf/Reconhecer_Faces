@@ -16,7 +16,7 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 
 1. Em **Cadastrar**, informe o nome, tire ou envie uma foto com um único rosto e clique em **Cadastrar foto**.
 2. Repita com o mesmo nome para adicionar fotos da pessoa em ângulos e iluminações diferentes.
-3. Em **Identificar**, tire ou envie uma foto. O agente mostra o resultado e fala o nome.
+3. Em **Identificar**, no modo **Vídeo ao vivo**, basta ficar de frente para a câmera: o agente reconhece direto do vídeo, fala o nome e espera 10 segundos antes de um novo reconhecimento. No modo **Foto**, tire ou envie uma foto. O agente mostra o resultado e fala o nome.
 4. Em **Pessoas cadastradas**, veja os cadastros ou exclua uma pessoa com todas as fotos.
 
 ## Como funciona
